@@ -11,7 +11,7 @@
 
 Kp_vals = 2:6;            % Variable_1 in the Root Parameter Set panel
 Ki_vals = 0.2:0.1:0.6;    % Variable_2
-Kd_vals = 0.2:0.1:0.6;    % Variable_3
+Kd_vals = 0;              % Not swept this batch (Kd_Level fixed at base workspace value)
 
 nKp = numel(Kp_vals); nKi = numel(Ki_vals); nKd = numel(Kd_vals);
 assert(numel(out) == nKp*nKi*nKd, 'out size does not match the parameter grid size');
