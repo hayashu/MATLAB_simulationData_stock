@@ -19,6 +19,7 @@ assert(numel(out) == nKp*nKi*nKd, 'out size does not match the parameter grid si
 stepTime = 20;
 target   = 1.2;
 syncDir  = fullfile(fileparts(mfilename('fullpath')), 'mlflow_sync');
+gitInfo  = watertank_git_info();
 
 for i = 1:numel(out)
     kp_idx = mod(i-1, nKp) + 1;
@@ -75,7 +76,8 @@ for i = 1:numel(out)
         'StepTime', stepTime, 'TargetLevel', target);
     metadata.metrics = struct('RMSE', RMSE, 'Overshoot_pct', Overshoot_pct, ...
         'SettlingTime_s', SettlingTime_s, 'FinalLevel', FinalLevel);
-    metadata.tags = struct('Controller', 'PID', 'Source', 'RootParameterSet');
+    metadata.tags = struct('Controller', 'PID', 'Source', 'RootParameterSet', ...
+        'git_commit', gitInfo.commit, 'git_dirty', gitInfo.dirty);
     metadata.description = sprintf('Water tank level control sweep: Kp=%.2f, Ki=%.2f, Kd=%.2f', ...
         Kp_Level, Ki_Level, Kd_Level);
 
