@@ -87,3 +87,15 @@ for i = 1:numel(out)
 end
 
 fprintf('%d 件のrun manifestを書き出しました: %s\n', numel(out), syncDir);
+
+%% Sync to MLflow (2ステップ目をここに統合: この後test_mlflow.pyを手動実行しなくてよい)
+syncScript = fullfile(fileparts(mfilename('fullpath')), 'test_mlflow.py');
+if isfile(syncScript)
+    fprintf('MLflowへ同期中...\n');
+    pythonExe = '/Library/Frameworks/Python.framework/Versions/3.13/bin/python3';
+    [status, cmdout] = system(sprintf('"%s" "%s"', pythonExe, syncScript));
+    disp(cmdout);
+    if status ~= 0
+        warning('test_mlflow.py の実行に失敗しました (status=%d)。手動で実行してください。', status);
+    end
+end
