@@ -1,10 +1,17 @@
 function watertank_stopfcn_export()
 %WATERTANK_STOPFCN_EXPORT Model StopFcn callback for WaterTankLevelControlDemo.
-% Runs automatically every time a simulation of this model ends, no matter
-% how it was started (manual "Run", the toolstrip "Run All" batch panel, or
-% a script). Reads the just-finished run from the Simulation Data Inspector
-% and the current Kp_Level/Ki_Level/Kd_Level from the base workspace, then
-% writes a run_*/metadata.json folder consumed by pr1/test_mlflow.py.
+% Runs automatically every time a manual simulation of this model ends,
+% and syncs the result to MLflow immediately (single-step: Run -> MLflow).
+%
+% Skips itself when running as part of a Root Parameter Set ("Run All")
+% batch: those simulations execute on parallel pool workers, where the
+% base workspace does NOT reflect the actual swept Kp/Ki/Kd values for
+% that specific case (verified empirically 2026-09-05) - exporting there
+% would silently mislabel every run. getCurrentTask() is non-empty only
+% inside a worker, so it reliably distinguishes the two.
+if ~isempty(getCurrentTask())
+    return
+end
 
 runIDs = Simulink.sdi.getAllRunIDs();
 if isempty(runIDs)
@@ -106,4 +113,15 @@ metadata.description = sprintf('Water tank level control: Kp=%.2f, Ki=%.2f, Kd=%
 fid = fopen(fullfile(outputDir, 'metadata.json'), 'w');
 fwrite(fid, jsonencode(metadata));
 fclose(fid);
+
+%% Sync to MLflow immediately (Run -> MLflow in a single step)
+syncScript = fullfile(fileparts(mfilename('fullpath')), 'test_mlflow.py');
+if isfile(syncScript)
+    pythonExe = '/Library/Frameworks/Python.framework/Versions/3.13/bin/python3';
+    [status, cmdout] = system(sprintf('"%s" "%s"', pythonExe, syncScript));
+    disp(cmdout);
+    if status ~= 0
+        warning('test_mlflow.py の実行に失敗しました (status=%d)。手動で実行してください。', status);
+    end
+end
 end
