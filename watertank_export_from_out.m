@@ -9,8 +9,8 @@
 % index->parameter mappings and matching overshoot to out(2). Re-verify if
 % the panel's variable order or count changes.
 
-Kp_vals = 2:6;            % Variable_1 in the Root Parameter Set panel
-Ki_vals = 0.2:0.1:0.6;    % Variable_2
+Kp_vals = 10:12;          % Variable_1 in the Root Parameter Set panel
+Ki_vals = 1.0:0.1:1.2;    % Variable_2
 Kd_vals = 0;              % Not swept this batch (Kd_Level fixed at base workspace value)
 
 nKp = numel(Kp_vals); nKi = numel(Ki_vals); nKd = numel(Kd_vals);
