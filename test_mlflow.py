@@ -79,8 +79,15 @@ def sync_runs():
 
             # Runの開始
             with mlflow.start_run(run_name=run_name) as active_run:
-                # 1. パラメータの記録
+                # Sourceをtest_mlflow.py（同期スクリプト）ではなく、実際にシミュレーションした
+                # Simulinkモデルに書き換える（Model名は 1.のparamsループより前に読む必要がある）
                 params = metadata.get("params", {})
+                model_name = params.get("Model")
+                if model_name:
+                    mlflow.set_tag("mlflow.source.name", f"{model_name}.slx")
+                    mlflow.set_tag("mlflow.source.type", "LOCAL")
+
+                # 1. パラメータの記録
                 for k, v in params.items():
                     mlflow.log_param(k, v)
 
