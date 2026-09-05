@@ -1,0 +1,1 @@
+{"experiment_name":"PI_Parameter_Sweep","run_name":"Kp=3.0_Ki=1.0","params":{"Model":"test_func","Kp":3,"Ki":1},"metrics":{"RMSE":8.678399463723353E+26,"Overshoot_pct":8.7665915998023456E+29},"tags":{"BatchID":"20260823_032353","Controller":"PI"},"description":"PIパラメータ自動探索: Kp=3.00, Ki=1.00"}
