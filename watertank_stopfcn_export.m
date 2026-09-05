@@ -1,14 +1,18 @@
 function watertank_stopfcn_export()
 %WATERTANK_STOPFCN_EXPORT Model StopFcn callback for WaterTankLevelControlDemo.
-% Runs automatically every time a manual simulation of this model ends,
-% and syncs the result to MLflow immediately (single-step: Run -> MLflow).
+% Runs automatically every time a simulation of this model ends and writes
+% a local run_*/metadata.json folder. Does NOT call test_mlflow.py itself
+% -- run that manually after a Run (or a Root Parameter Set batch + the
+% matching watertank_export_from_out.m) to sync to MLflow.
 %
-% Skips itself when running as part of a Root Parameter Set ("Run All")
-% batch: those simulations execute on parallel pool workers, where the
-% base workspace does NOT reflect the actual swept Kp/Ki/Kd values for
-% that specific case (verified empirically 2026-09-05) - exporting there
-% would silently mislabel every run. getCurrentTask() is non-empty only
-% inside a worker, so it reliably distinguishes the two.
+% This is deliberately local-only. An earlier version also auto-invoked
+% test_mlflow.py and used getCurrentTask() to skip itself during a Root
+% Parameter Set ("Run All") batch (those simulations run where base
+% workspace doesn't reflect the real per-case Kp/Ki/Kd). That guard did
+% NOT work for the actual "Run All" panel (verified 2026-09-05: it
+% auto-published 9 mislabeled runs to MLflow before the mistake was
+% caught and reverted). Keep this function local-write-only until a
+% reliable way to detect "inside a Root Parameter Set batch" is found.
 if ~isempty(getCurrentTask())
     return
 end
@@ -113,15 +117,4 @@ metadata.description = sprintf('Water tank level control: Kp=%.2f, Ki=%.2f, Kd=%
 fid = fopen(fullfile(outputDir, 'metadata.json'), 'w');
 fwrite(fid, jsonencode(metadata));
 fclose(fid);
-
-%% Sync to MLflow immediately (Run -> MLflow in a single step)
-syncScript = fullfile(fileparts(mfilename('fullpath')), 'test_mlflow.py');
-if isfile(syncScript)
-    pythonExe = '/Library/Frameworks/Python.framework/Versions/3.13/bin/python3';
-    [status, cmdout] = system(sprintf('"%s" "%s"', pythonExe, syncScript));
-    disp(cmdout);
-    if status ~= 0
-        warning('test_mlflow.py の実行に失敗しました (status=%d)。手動で実行してください。', status);
-    end
-end
 end
