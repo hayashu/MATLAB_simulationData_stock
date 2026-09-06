@@ -14,7 +14,9 @@ SYNC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mlflow_sync
 def log_timeseries_metrics(folder):
     """signals.matの時系列をstep付きmetricとして記録し、MLflowのCompare Runs画面で
     複数run分の波形を重ねて比較できるようにする。stepは実時間0.1秒刻みにして、
-    サンプル数が異なるrun同士でも時間軸を揃えて比較できるようにしている。"""
+    サンプル数が異なるrun同士でも時間軸を揃えて比較できるようにしている。
+    実時間そのものも SimTime_s として記録し、MLflowのChart画面でX軸に
+    "Step"の代わりにこのmetricを選べば、秒単位の時間軸でグラフを見られる。"""
     mat_path = os.path.join(folder, "signals.mat")
     if not os.path.exists(mat_path):
         return
@@ -29,6 +31,7 @@ def log_timeseries_metrics(folder):
         "LevelMeas": ("tMeas", "yMeas"),
         "LevelRef": ("tRef", "yRef"),
     }
+    logged_time_steps = set()
     for metric_name, (t_key, y_key) in series_map.items():
         if t_key not in data or y_key not in data:
             continue
@@ -37,7 +40,12 @@ def log_timeseries_metrics(folder):
         for ti, yi in zip(t, y):
             step = int(round(float(ti) * 10))
             mlflow.log_metric(metric_name, float(yi), step=step)
+            if step not in logged_time_steps:
+                mlflow.log_metric("SimTime_s", float(ti), step=step)
+                logged_time_steps.add(step)
         print(f"  📈 時系列metric追加: {metric_name} ({len(t)} 点)")
+    if logged_time_steps:
+        print(f"  🕒 SimTime_s も記録 ({len(logged_time_steps)} 点) — Chart画面のX軸に指定可能")
 
 
 def sync_runs():
