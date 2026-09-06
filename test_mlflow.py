@@ -13,18 +13,16 @@ TRACKING_URI = "http://127.0.0.1:5001"  # 起動中のMLflowポート
 SYNC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mlflow_sync")  # ローカル完結（クラウド同期対象外）
 
 def log_timeseries_metrics(folder):
-    """signals.matの時系列を、共通の0.1秒刻みグリッドにリサンプルしてから
-    step付きmetricとして記録する。MLflowのCompare Runs画面で複数run分の
-    波形を重ねて比較できるようにするため。
+    """signals.matの時系列を、Simulinkが実際に出力した時刻(tMeas/tRef、
+    solverのtoutそのもの)をそのままstep番号として記録する。リサンプルは
+    行わない -- tMeas/tRef/tout はこのモデルでは完全に一致する(連続系
+    信号を同じsolverステップでログしているため)ので、生の点をそのまま
+    使えば LevelMeas/LevelRef/SimTime_s の点数・順序は自然に一致する。
 
-    リサンプルする理由: 元の可変ステップ solver の時刻をそのまま
-    round(t*10) で step 化すると、同じ step に複数サンプルが collision
-    したり(重複)、信号ごとにサンプル数が変わったりする。MLflowの
-    Chart画面でX軸にmetric(SimTime_s)を指定する機能は、おそらく
-    「何番目の点か」で対応付けているため、LevelMeas/LevelRef/SimTime_sの
-    点数が1点でもズレると後半の対応がズレてジグザグな波形になる
-    (実際に発生した不具合)。共通グリッドへの線形補間でこれを解消し、
-    SimTime_s・LevelMeas・LevelRefの点数と順序を完全に一致させる。"""
+    MLflowの「metric as X-axis」チャートは「何番目の点か」で対応付けて
+    いるようなので、点数が1点でもズレると後半の対応がズレてジグザグな
+    波形になる(実際に0.1秒刻みへの丸めで発生した)。生の点をそのまま
+    使うことでこの問題ごと回避する。"""
     mat_path = os.path.join(folder, "signals.mat")
     if not os.path.exists(mat_path):
         return
@@ -35,34 +33,28 @@ def log_timeseries_metrics(folder):
         print(f"  ⚠️ signals.mat 読み込み失敗: {e}")
         return
 
-    series_map = {
-        "LevelMeas": ("tMeas", "yMeas"),
-        "LevelRef": ("tRef", "yRef"),
-    }
-
-    dt = 0.1
-    t_max = 0.0
-    for t_key, _ in series_map.values():
-        if t_key in data:
-            t_max = max(t_max, float(data[t_key].flatten()[-1]))
-    if t_max <= 0:
+    if "tMeas" not in data or "yMeas" not in data:
         return
-    n_steps = int(round(t_max / dt)) + 1
-    grid_t = np.arange(n_steps) * dt
+    tMeas = data["tMeas"].flatten()
+    yMeas = data["yMeas"].flatten()
 
-    for metric_name, (t_key, y_key) in series_map.items():
-        if t_key not in data or y_key not in data:
-            continue
-        t = data[t_key].flatten()
-        y = data[y_key].flatten()
-        y_grid = np.interp(grid_t, t, y)
-        for step, yi in enumerate(y_grid):
-            mlflow.log_metric(metric_name, float(yi), step=step)
-        print(f"  📈 時系列metric追加: {metric_name} ({n_steps} 点、0.1秒刻みにリサンプル)")
+    for step, yi in enumerate(yMeas):
+        mlflow.log_metric("LevelMeas", float(yi), step=step)
+    print(f"  📈 時系列metric追加: LevelMeas ({len(yMeas)} 点、Simulinkのtoutをそのまま使用)")
 
-    for step, ti in enumerate(grid_t):
+    if "tRef" in data and "yRef" in data:
+        tRef = data["tRef"].flatten()
+        yRef = data["yRef"].flatten()
+        if len(tRef) != len(tMeas) or not np.allclose(tRef, tMeas):
+            print("  ⚠️ LevelRefの時刻がLevelMeasと一致しません(このモデルでは通常一致するはず)。"
+                  "step番号はそのまま使うため、X軸との対応がLevelRef側でズレる可能性があります。")
+        for step, yi in enumerate(yRef):
+            mlflow.log_metric("LevelRef", float(yi), step=step)
+        print(f"  📈 時系列metric追加: LevelRef ({len(yRef)} 点)")
+
+    for step, ti in enumerate(tMeas):
         mlflow.log_metric("SimTime_s", float(ti), step=step)
-    print(f"  🕒 SimTime_s も記録 ({n_steps} 点) — Chart画面のX軸に指定可能")
+    print(f"  🕒 SimTime_s も記録 ({len(tMeas)} 点、Simulinkのtout) — Chart画面のX軸に指定可能")
 
 
 def sync_runs():
