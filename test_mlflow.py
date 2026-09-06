@@ -5,6 +5,7 @@ import json
 os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
 
 import mlflow
+import numpy as np
 from scipy.io import loadmat
 
 # 設定
@@ -12,11 +13,18 @@ TRACKING_URI = "http://127.0.0.1:5001"  # 起動中のMLflowポート
 SYNC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mlflow_sync")  # ローカル完結（クラウド同期対象外）
 
 def log_timeseries_metrics(folder):
-    """signals.matの時系列をstep付きmetricとして記録し、MLflowのCompare Runs画面で
-    複数run分の波形を重ねて比較できるようにする。stepは実時間0.1秒刻みにして、
-    サンプル数が異なるrun同士でも時間軸を揃えて比較できるようにしている。
-    実時間そのものも SimTime_s として記録し、MLflowのChart画面でX軸に
-    "Step"の代わりにこのmetricを選べば、秒単位の時間軸でグラフを見られる。"""
+    """signals.matの時系列を、共通の0.1秒刻みグリッドにリサンプルしてから
+    step付きmetricとして記録する。MLflowのCompare Runs画面で複数run分の
+    波形を重ねて比較できるようにするため。
+
+    リサンプルする理由: 元の可変ステップ solver の時刻をそのまま
+    round(t*10) で step 化すると、同じ step に複数サンプルが collision
+    したり(重複)、信号ごとにサンプル数が変わったりする。MLflowの
+    Chart画面でX軸にmetric(SimTime_s)を指定する機能は、おそらく
+    「何番目の点か」で対応付けているため、LevelMeas/LevelRef/SimTime_sの
+    点数が1点でもズレると後半の対応がズレてジグザグな波形になる
+    (実際に発生した不具合)。共通グリッドへの線形補間でこれを解消し、
+    SimTime_s・LevelMeas・LevelRefの点数と順序を完全に一致させる。"""
     mat_path = os.path.join(folder, "signals.mat")
     if not os.path.exists(mat_path):
         return
@@ -31,21 +39,30 @@ def log_timeseries_metrics(folder):
         "LevelMeas": ("tMeas", "yMeas"),
         "LevelRef": ("tRef", "yRef"),
     }
-    logged_time_steps = set()
+
+    dt = 0.1
+    t_max = 0.0
+    for t_key, _ in series_map.values():
+        if t_key in data:
+            t_max = max(t_max, float(data[t_key].flatten()[-1]))
+    if t_max <= 0:
+        return
+    n_steps = int(round(t_max / dt)) + 1
+    grid_t = np.arange(n_steps) * dt
+
     for metric_name, (t_key, y_key) in series_map.items():
         if t_key not in data or y_key not in data:
             continue
         t = data[t_key].flatten()
         y = data[y_key].flatten()
-        for ti, yi in zip(t, y):
-            step = int(round(float(ti) * 10))
+        y_grid = np.interp(grid_t, t, y)
+        for step, yi in enumerate(y_grid):
             mlflow.log_metric(metric_name, float(yi), step=step)
-            if step not in logged_time_steps:
-                mlflow.log_metric("SimTime_s", float(ti), step=step)
-                logged_time_steps.add(step)
-        print(f"  📈 時系列metric追加: {metric_name} ({len(t)} 点)")
-    if logged_time_steps:
-        print(f"  🕒 SimTime_s も記録 ({len(logged_time_steps)} 点) — Chart画面のX軸に指定可能")
+        print(f"  📈 時系列metric追加: {metric_name} ({n_steps} 点、0.1秒刻みにリサンプル)")
+
+    for step, ti in enumerate(grid_t):
+        mlflow.log_metric("SimTime_s", float(ti), step=step)
+    print(f"  🕒 SimTime_s も記録 ({n_steps} 点) — Chart画面のX軸に指定可能")
 
 
 def sync_runs():
