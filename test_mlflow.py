@@ -1,6 +1,9 @@
 import os
 import glob
 import json
+
+os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
+
 import mlflow
 from scipy.io import loadmat
 
