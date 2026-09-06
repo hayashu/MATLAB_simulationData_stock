@@ -21,6 +21,14 @@ target   = 1.2;
 syncDir  = fullfile(fileparts(mfilename('fullpath')), 'mlflow_sync');
 gitInfo  = watertank_git_info();
 
+% One shared session_id for the whole batch, so every run in it can be
+% grouped under the same experiment note (see new_experiment_note.m).
+if evalin('base', 'exist(''session_id'',''var'')')
+    session_id = evalin('base', 'session_id');
+else
+    session_id = datestr(now, 'yyyymmdd_HHMMSS'); %#ok<TNOW1,DATST>
+end
+
 for i = 1:numel(out)
     kp_idx = mod(i-1, nKp) + 1;
     ki_idx = mod(floor((i-1)/nKp), nKi) + 1;
@@ -77,7 +85,8 @@ for i = 1:numel(out)
     metadata.metrics = struct('RMSE', RMSE, 'Overshoot_pct', Overshoot_pct, ...
         'SettlingTime_s', SettlingTime_s, 'FinalLevel', FinalLevel);
     metadata.tags = struct('Controller', 'PID', 'Source', 'RootParameterSet', ...
-        'git_commit', gitInfo.commit, 'git_dirty', gitInfo.dirty);
+        'git_commit', gitInfo.commit, 'git_dirty', gitInfo.dirty, ...
+        'session_id', session_id);
     metadata.description = sprintf('Water tank level control sweep: Kp=%.2f, Ki=%.2f, Kd=%.2f', ...
         Kp_Level, Ki_Level, Kd_Level);
 

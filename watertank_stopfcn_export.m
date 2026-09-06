@@ -109,8 +109,12 @@ metadata.metrics = struct(...
 );
 
 gitInfo = watertank_git_info();
-metadata.tags = struct('Controller', 'PID', 'Source', 'StopFcn', ...
+tags = struct('Controller', 'PID', 'Source', 'StopFcn', ...
     'git_commit', gitInfo.commit, 'git_dirty', gitInfo.dirty);
+if evalin('base', 'exist(''session_id'',''var'')')
+    tags.session_id = evalin('base', 'session_id');
+end
+metadata.tags = tags;
 metadata.description = sprintf('Water tank level control: Kp=%.2f, Ki=%.2f, Kd=%.2f', ...
     Kp_Level, Ki_Level, Kd_Level);
 
