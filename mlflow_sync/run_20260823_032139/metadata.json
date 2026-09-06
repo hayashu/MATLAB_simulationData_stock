@@ -1,1 +1,0 @@
-{"experiment_name":"My_Simulink_Experiment","run_name":"Run_20260823_030254","params":{"Controller":"PID","Kp":2,"Ki":0.5,"SamplingTime":0.01},"metrics":{"RMSE":0.034,"SettlingTime_s":1.25,"MaxOvershoot_pct":8.5},"tags":{"Environment":"No_Noise","Author":"Yukky"},"description":"Kiを上げたことで定常偏差は改善したが、オーバーシュートがやや増加した。"}

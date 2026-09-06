@@ -5,3 +5,4 @@ __pycache__/
 *.pyc
 *.mlapp.backup
 *-plan.md
+mlflow_sync/
