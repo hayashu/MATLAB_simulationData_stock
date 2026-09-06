@@ -1,4 +1,4 @@
-function noteFile = new_experiment_note(titleStr)
+function noteFile = new_experiment_note(titleStr, hypothesisText)
 %NEW_EXPERIMENT_NOTE Start a new experiment session: creates a lab-notebook
 % Markdown file and sets `session_id` in the base workspace so that
 % subsequent simulation runs (single Run, or a Root Parameter Set batch +
@@ -6,14 +6,20 @@ function noteFile = new_experiment_note(titleStr)
 %
 % Usage:
 %   new_experiment_note('PIDゲインスイープ検討')
+%   new_experiment_note('PIDゲインスイープ検討', '開口面積を最適化したい')
 %
-% After calling this, open the returned/displayed file and write the
-% "目的・仮説" section before running the simulation. Fill in
-% "考察・結論" after reviewing the results (see manage_simstock.py
-% summarize / sync-notes).
+% hypothesisText is optional; if given, it replaces the placeholder text
+% in the "目的・仮説" section directly (used by WaterTankApp so the user
+% doesn't have to open the file manually). Otherwise open the
+% returned/displayed file and write the "目的・仮説" section before
+% running the simulation. Fill in "考察・結論" after reviewing the
+% results (see manage_simstock.py summarize / sync-notes).
 
 if nargin < 1 || isempty(titleStr)
     titleStr = 'Untitled';
+end
+if nargin < 2
+    hypothesisText = '(なぜこの実験をするか、何を期待しているかをここに書く)';
 end
 
 session_id = datestr(now, 'yyyymmdd_HHMMSS'); %#ok<TNOW1,DATST>
@@ -42,7 +48,7 @@ template = sprintf([ ...
     '# 実験: %s\n' ...
     '\n' ...
     '## 目的・仮説\n' ...
-    '(なぜこの実験をするか、何を期待しているかをここに書く)\n' ...
+    '%s\n' ...
     '\n' ...
     '## 方法\n' ...
     '- モデル: WaterTankLevelControlDemo\n' ...
@@ -53,7 +59,7 @@ template = sprintf([ ...
     '\n' ...
     '## 考察・結論\n' ...
     '(結果を見てから書く)\n'], ...
-    session_id, datestr(now, 'yyyy-mm-dd'), titleStr, session_id); %#ok<DATST>
+    session_id, datestr(now, 'yyyy-mm-dd'), titleStr, hypothesisText, session_id); %#ok<DATST>
 
 fid = fopen(noteFile, 'w');
 fwrite(fid, template);
