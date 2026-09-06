@@ -7,10 +7,13 @@ WaterTankLevelControlDemo(Simulinkの水位制御デモ)のシミュレーショ
 ## 構成
 
 - `.simstock` — このフォルダを管理対象プロジェクトとして識別するマーカー(`~/Documents/MATLAB/manage_simstock.py`が検出する)
+- `WaterTankApp.mlapp` — **コード不要でワークフロー全体を操作できるGUI**(実験開始・シミュレーション実行・結果同期・考察記入・履歴閲覧)。詳細は下記
 - `WaterTankLevelControlDemo.slx` / `WaterTankLevelControlDemo_init.m` — Simulinkモデルと初期化スクリプト
 - `new_experiment_note.m` — 実験セッションを開始する(`notes/`にMarkdownノートを作成し、`session_id`をbaseワークスペースに設定)
 - `WaterTankLevelControlDemo_mlflow_run.m` — 単発シミュレーション実行 → 指標計算 → MLflow同期まで一括実行
-- `watertank_export_from_out.m` — Simulinkの「Root Parameter Set」(Run All)によるバッチ結果(`out`変数)から、正しいパラメータでrun manifestを再生成するスクリプト
+- `watertank_export_from_out.m` — Simulinkの「Root Parameter Set」(Run All)によるバッチ結果(`out`変数)から、正しいパラメータでrun manifestを再生成する薄いラッパー(実処理は`export_batch_results.m`)
+- `run_parameter_sweep.m` — Root Parameter Setパネルに依存せず、`simulink.multisim.DesignStudy`+`parsim`で直接パラメータスイープを実行し、そのままエクスポートする(GUIのスイープタブが使用)
+- `export_batch_results.m` — バッチ結果(`out`+パラメータ範囲)からrun manifestを書き出し、MLflowへ同期する共通処理
 - `watertank_stopfcn_export.m` — モデルのStopFcnコールバック(現在有効)。シミュレーション終了ごとにローカルへ`metadata.json`を書き出す(MLflowへの自動同期はしない。理由はファイル冒頭のコメント参照)
 - `watertank_postsim_export.m` — `simulink.multisim.DesignStudy`のPostSimFcn用(現状未使用)
 - `test_mlflow.py` — `mlflow_sync/run_*/metadata.json`を読み取り、MLflowへパラメータ・指標・アーティファクト・時系列metricを登録する同期スクリプト(このプロジェクト単体を同期する場合用。複数プロジェクトを横断するなら`manage_simstock.py`を使う)
@@ -18,6 +21,18 @@ WaterTankLevelControlDemo(Simulinkの水位制御デモ)のシミュレーショ
 - `notes/` — 実験セッションごとのMarkdownノート(仮説・結果表・考察)
 
 ## 使い方
+
+### GUIアプリ(コード不要)
+```matlab
+app = WaterTankApp();
+```
+4つのタブでワークフロー全体を操作できる:
+1. **実験開始** — タイトルと仮説を入力して開始(`new_experiment_note`を裏で呼ぶ)
+2. **シミュレーション実行** — 「単発」か「スイープ」を選び、Kp/Ki/Kdを入力して実行(スイープは`run_parameter_sweep`経由でRoot Parameter Setパネルを使わない)
+3. **結果・考察** — MLflow同期・結果表挿入・考察記入・MLflowへの反映・MLflowを開く、をボタン操作で
+4. **実験履歴** — 過去の実験ノート一覧と内容の閲覧
+
+以下は同じ処理をコマンドで行いたい場合の方法(GUIの裏側と同じ関数を直接呼ぶ)。
 
 ### 単発実行
 ```matlab
